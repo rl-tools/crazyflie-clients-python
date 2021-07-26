@@ -205,6 +205,10 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
             lambda *args: self._disable_input or
             self.cf.commander.send_zdistance_setpoint(*args))
 
+        self.joystickReader.learned_controller_input_updated.add_callback(
+            lambda *args: self._disable_input or
+            self.cf.commander.send_learned_controller())
+
         self.joystickReader.hover_input_updated.add_callback(
             self.cf.commander.send_hover_setpoint)
 
