@@ -69,6 +69,9 @@ from .dialogs.cf2config import Cf2ConfigDialog
 from .dialogs.inputconfigdialogue import InputConfigDialogue
 from .dialogs.logconfigdialogue import LogConfigDialogue
 
+import roslibpy
+import os
+
 
 __author__ = 'Bitcraze AB'
 __all__ = ['MainUI']
@@ -323,6 +326,21 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
 
         # We only want to warn about USB permission once
         self._permission_warned = False
+
+        self.ros = roslibpy.Ros(host='localhost', port=9090)
+        self.ros.run()
+        self.vicon_listener = roslibpy.Topic(self.ros, os.environ["VICON_POSE_TOPIC"], 'geometry_msgs/PoseStamped')
+        self.vicon_counter = 0
+        def vicon_callback(message):
+            # import json
+            if self.vicon_counter % 1 == 0:
+                if self.uiState == UIState.CONNECTED:
+                    self.cf.extpos.send_extpos(message["pose"]["position"]["x"], message["pose"]["position"]["y"], message["pose"]["position"]["z"])
+                    # print(json.dumps(message["pose"]))
+            self.vicon_counter += 1
+        self.vicon_listener.subscribe(vicon_callback)
+
+        print(f"ROS connected: {self.ros.is_connected}")
 
     def create_tab_toolboxes(self, tabs_menu_item, toolboxes_menu_item, tab_widget):
         loaded_tab_toolboxes = {}

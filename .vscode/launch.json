@@ -10,8 +10,9 @@
             "request": "launch",
             "module": "cfclient.gui",
             "console": "integratedTerminal",
+            "justMyCode": false,
             "env": {
-                "DISPLAY": ":0.0"
+                "VICON_POSE_TOPIC": "/vicon/voxl2_9/pose"
             }
         }
     ]
