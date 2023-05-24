@@ -12,7 +12,7 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "env": {
-                "VICON_POSE_TOPIC": "/vicon/voxl2_9/pose"
+                "VICON_POSE_TOPIC": "/vicon/crazyflie/pose"
             }
         }
     ]
