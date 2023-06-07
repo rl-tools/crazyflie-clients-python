@@ -71,6 +71,8 @@ from .dialogs.logconfigdialogue import LogConfigDialogue
 
 import roslibpy
 import os
+from PyQt5.QtCore import QTimer
+
 
 
 __author__ = 'Bitcraze AB'
@@ -208,9 +210,15 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
             lambda *args: self._disable_input or
             self.cf.commander.send_zdistance_setpoint(*args))
 
-        self.joystickReader.learned_controller_input_updated.add_callback(
-            lambda *args: self._disable_input or
-            self.cf.commander.send_learned_controller())
+        self.learned_controller_counter = 0
+        def learned_controller_callback(*args):
+            if self.learned_controller_counter % 10 == 0:
+                print("learned controller callback")
+                self._disable_input or self.cf.commander.send_learned_controller()
+            self.learned_controller_counter += 1
+            return True
+
+        self.joystickReader.learned_controller_input_updated.add_callback(learned_controller_callback)
 
         self.joystickReader.hover_input_updated.add_callback(
             self.cf.commander.send_hover_setpoint)
@@ -327,20 +335,44 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
         # We only want to warn about USB permission once
         self._permission_warned = False
 
-        self.ros = roslibpy.Ros(host='localhost', port=9090)
-        self.ros.run()
-        self.vicon_listener = roslibpy.Topic(self.ros, os.environ["VICON_POSE_TOPIC"], 'geometry_msgs/PoseStamped')
-        self.vicon_counter = 0
-        def vicon_callback(message):
-            # import json
-            if self.vicon_counter % 1 == 0:
-                if self.uiState == UIState.CONNECTED:
-                    self.cf.extpos.send_extpos(message["pose"]["position"]["x"], message["pose"]["position"]["y"], message["pose"]["position"]["z"])
-                    # print(json.dumps(message["pose"]))
-            self.vicon_counter += 1
-        self.vicon_listener.subscribe(vicon_callback)
+        send_vicon_pos = False
 
-        print(f"ROS connected: {self.ros.is_connected}")
+        if send_vicon_pos:
+            self.ros = roslibpy.Ros(host='localhost', port=9090)
+            try:
+                self.ros.run()
+                self.vicon_listener = roslibpy.Topic(self.ros, os.environ["VICON_POSE_TOPIC"], 'geometry_msgs/PoseStamped')
+                self.vicon_counter = 0
+                def vicon_callback(message):
+                    # import json
+                    if self.vicon_counter % 1 == 0:
+                        if self.uiState == UIState.CONNECTED:
+                            # self.cf.extpos.send_extpos(message["pose"]["position"]["x"], message["pose"]["position"]["y"], message["pose"]["position"]["z"])
+                            self.cf.extpos.send_extpose(
+                                message["pose"]["position"]["x"],
+                                message["pose"]["position"]["y"],
+                                message["pose"]["position"]["z"],
+                                message["pose"]["orientation"]["x"],
+                                message["pose"]["orientation"]["y"],
+                                message["pose"]["orientation"]["z"],
+                                message["pose"]["orientation"]["w"],
+                            )
+                            # print(json.dumps(message["pose"]))
+                    self.vicon_counter += 1
+                self.vicon_listener.subscribe(vicon_callback)
+            except:
+                print("ROS not connected")
+                # dummy timer to feed dummy position
+                def vicon_dummy_callback():
+                    if self.uiState == UIState.CONNECTED:
+                        pass
+                        # self.cf.extpos.send_extpos(0, 0, 0)
+                self.vicon_timer = QTimer()
+                self.vicon_timer.timeout.connect(vicon_dummy_callback)
+                self.vicon_timer.start(100)
+
+
+            print(f"ROS connected: {self.ros.is_connected}")
 
     def create_tab_toolboxes(self, tabs_menu_item, toolboxes_menu_item, tab_widget):
         loaded_tab_toolboxes = {}
