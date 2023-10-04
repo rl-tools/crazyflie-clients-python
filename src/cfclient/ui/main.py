@@ -29,6 +29,7 @@ The main file for the Crazyflie control application.
 import logging
 import sys
 import usb
+import json
 
 import cfclient
 from cfclient.ui.pose_logger import PoseLogger
@@ -335,7 +336,7 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
         # We only want to warn about USB permission once
         self._permission_warned = False
 
-        send_vicon_pos = False
+        send_vicon_pos = True
 
         if send_vicon_pos:
             self.ros = roslibpy.Ros(host='localhost', port=9090)
@@ -357,7 +358,7 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
                                 message["pose"]["orientation"]["z"],
                                 message["pose"]["orientation"]["w"],
                             )
-                            # print(json.dumps(message["pose"]))
+                            print(json.dumps(message["pose"]))
                     self.vicon_counter += 1
                 self.vicon_listener.subscribe(vicon_callback)
             except:
