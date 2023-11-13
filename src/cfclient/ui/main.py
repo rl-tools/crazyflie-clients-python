@@ -73,6 +73,7 @@ from .dialogs.logconfigdialogue import LogConfigDialogue
 import roslibpy
 import os
 from PyQt5.QtCore import QTimer
+import random
 
 
 
@@ -358,7 +359,8 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
                                 message["pose"]["orientation"]["z"],
                                 message["pose"]["orientation"]["w"],
                             )
-                            print(json.dumps(message["pose"]))
+                            if self.vicon_counter % 10 == 0:
+                                print(json.dumps(message["pose"]))
                     self.vicon_counter += 1
                 self.vicon_listener.subscribe(vicon_callback)
             except:
