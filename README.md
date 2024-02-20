@@ -20,6 +20,10 @@ Run the automated build locally to test your code
 
 	python3 tools/build/build
 
+
+
+# Learning to Fly in Seconds
+
 ## Input mapping
 
 
@@ -81,3 +85,20 @@ Change the mapping in `~/.config/cfclient/input/xxx.json` to include `learnedCon
   }
 }
 ```
+
+## Motion Capturing
+
+```
+roscore
+```
+
+```
+roslaunch mocap_vicon vicon.launch
+```
+
+```
+roslaunch rosbridge_server rosbridge_websocket.launch
+```
+
+
+=> `.vscode/launch.json`

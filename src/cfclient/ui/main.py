@@ -66,6 +66,15 @@ from PyQt6.QtWidgets import QLabel
 from PyQt6.QtWidgets import QMenu
 from PyQt6.QtWidgets import QMessageBox
 
+
+import cflib.crtp
+from cflib.crazyflie import Crazyflie
+from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
+from cflib.utils import uri_helper
+from cflib.crtp.crtpstack import CRTPPacket
+from cflib.crtp.crtpstack import CRTPPort
+from cflib.crazyflie.commander import SET_SETPOINT_CHANNEL, META_COMMAND_CHANNEL, TYPE_HOVER 
+
 from .dialogs.cf2config import Cf2ConfigDialog
 from .dialogs.inputconfigdialogue import InputConfigDialogue
 from .dialogs.logconfigdialogue import LogConfigDialogue
@@ -74,6 +83,7 @@ import roslibpy
 import os
 from PyQt5.QtCore import QTimer
 import random
+import struct
 
 
 
@@ -86,6 +96,12 @@ logger = logging.getLogger(__name__)
  main_windows_base_class) = (uic.loadUiType(cfclient.module_path +
                                             '/ui/main.ui'))
 
+def send_learned_policy_packet(cf):
+    pk = CRTPPacket()
+    pk.port = CRTPPort.COMMANDER_GENERIC
+    pk.channel = META_COMMAND_CHANNEL
+    pk.data = struct.pack('<B', 1)
+    cf.send_packet(pk)
 
 class UIState:
     DISCONNECTED = 0
@@ -216,7 +232,7 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
         def learned_controller_callback(*args):
             if self.learned_controller_counter % 10 == 0:
                 print("learned controller callback")
-                self._disable_input or self.cf.commander.send_learned_controller()
+                self._disable_input or send_learned_policy_packet(self.cf) #.commander.send_learned_controller()
             self.learned_controller_counter += 1
             return True
 
