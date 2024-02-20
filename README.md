@@ -19,3 +19,65 @@ Go to the [contribute page](https://www.bitcraze.io/contribute/) on our website 
 Run the automated build locally to test your code
 
 	python3 tools/build/build
+
+## Input mapping
+
+
+Do the normal assignment, then go to [https://hardwaretester.com/gamepad](https://hardwaretester.com/gamepad) to check the id of an additional button.
+
+Change the mapping in `~/.config/cfclient/input/xxx.json` to include `learnedController`, e.g.:
+
+```
+{
+  "inputconfig": {
+    "inputdevice": {
+      "axis": [
+        {
+          "id": 1,
+          "scale": -1.0,
+          "key": "thrust",
+          "name": "thrust",
+          "type": "Input.AXIS"
+        },
+        {
+          "id": 4,
+          "scale": -1.0,
+          "key": "pitch",
+          "name": "pitch",
+          "type": "Input.AXIS"
+        },
+        {
+          "id": 3,
+          "scale": 1.0,
+          "key": "roll",
+          "name": "roll",
+          "type": "Input.AXIS"
+        },
+        {
+          "id": 0,
+          "scale": 1.0,
+          "key": "yaw",
+          "name": "yaw",
+          "type": "Input.AXIS"
+        },
+        {
+          "id": 4,
+          "scale": 1.0,
+          "key": "assistedControl",
+          "name": "assistedControl",
+          "type": "Input.BUTTON"
+        },
+        {
+          "id": 5,
+          "scale": 1.0,
+          "key": "learnedController",
+          "name": "learnedController",
+          "type": "Input.BUTTON"
+        }
+      ],
+      "name": "PS3_Mode_1_8bitdo",
+      "updateperiod": 10
+    }
+  }
+}
+```
