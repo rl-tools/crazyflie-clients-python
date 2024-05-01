@@ -79,9 +79,16 @@ from .dialogs.cf2config import Cf2ConfigDialog
 from .dialogs.inputconfigdialogue import InputConfigDialogue
 from .dialogs.logconfigdialogue import LogConfigDialogue
 
-import roslibpy
+
+
+send_vicon_pos = True
+if send_vicon_pos:
+    try: 
+        import roslibpy
+        from PyQt5.QtCore import QTimer
+    except:
+        send_vicon_pos = False
 import os
-from PyQt5.QtCore import QTimer
 import random
 import struct
 
@@ -353,7 +360,6 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
         # We only want to warn about USB permission once
         self._permission_warned = False
 
-        send_vicon_pos = True
 
         if send_vicon_pos:
             self.ros = roslibpy.Ros(host='localhost', port=9090)
