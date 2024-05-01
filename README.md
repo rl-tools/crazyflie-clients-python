@@ -27,9 +27,10 @@ Run the automated build locally to test your code
 ## Input mapping
 
 
-Do the normal assignment, then go to [https://hardwaretester.com/gamepad](https://hardwaretester.com/gamepad) to check the id of an additional button.
+Do the normal assignment, then use `python3 test_gamepad_inputs.py` to check the id of an additional button and insert it into the config under `learnedController` as described in the following.
 
 Change the mapping in `~/.config/cfclient/input/xxx.json` to include `learnedController`, e.g.:
+Note: newer versions appear to save the config in `/Users/jonas/Library/Application Support/cfclient/config.json`
 
 ```
 {
