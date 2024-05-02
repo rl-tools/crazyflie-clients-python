@@ -85,7 +85,7 @@ send_vicon_pos = True
 if send_vicon_pos:
     try: 
         import roslibpy
-        from PyQt5.QtCore import QTimer
+        from PyQt6.QtCore import QTimer
     except:
         send_vicon_pos = False
 import os

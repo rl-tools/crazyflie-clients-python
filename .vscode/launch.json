@@ -8,7 +8,7 @@
             "name": "Python: gui",
             "type": "python",
             "request": "launch",
-            "module": "src.cfclient.gui",
+            "module": "cfclient.gui",
             "console": "integratedTerminal",
             "justMyCode": false,
             "env": {
