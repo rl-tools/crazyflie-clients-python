@@ -85,12 +85,13 @@ send_vicon_pos = True
 if send_vicon_pos:
     try: 
         import roslibpy
-        from PyQt6.QtCore import QTimer
+        from PyQt6.QtCore import QTimer, QThread, pyqtSignal, QMutex
     except:
         send_vicon_pos = False
 import os
 import random
 import struct
+import time
 
 
 
@@ -119,6 +120,41 @@ class UIState:
 
 class BatteryStates:
     BATTERY, CHARGING, CHARGED, LOW_POWER = list(range(4))
+
+
+class ROSWorker(QThread):
+    vicon_data_signal = pyqtSignal(dict)
+    
+    def __init__(self):
+        super().__init__()
+        self.mutex = QMutex()
+        self.running = True
+
+    def run(self):
+        try:
+            ros = roslibpy.Ros(host='localhost', port=9090)
+            ros.run(timeout=5)
+            
+            listener = roslibpy.Topic(ros, os.environ.get("VICON_POSE_TOPIC", "/vicon/crazyflie/pose"), 'geometry_msgs/PoseStamped', throttle_rate=50)
+            listener.subscribe(self.process_vicon_message)
+            
+            while self.running and ros.is_connected:
+                time.sleep(0.001)
+                
+        except Exception as e:
+            print(f"ROS Error: {e}")
+        finally:
+            if ros.is_connected:
+                ros.close()
+
+    def process_vicon_message(self, message):
+        self.mutex.lock()
+        self.vicon_data_signal.emit(message)
+        self.mutex.unlock()
+
+    def stop(self):
+        self.running = False
+        self.wait()
 
 
 class MainUI(QtWidgets.QMainWindow, main_window_class):
@@ -360,44 +396,61 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
         # We only want to warn about USB permission once
         self._permission_warned = False
 
-
         if send_vicon_pos:
-            self.ros = roslibpy.Ros(host='localhost', port=9090)
-            try:
-                self.ros.run()
-                self.vicon_listener = roslibpy.Topic(self.ros, os.environ["VICON_POSE_TOPIC"], 'geometry_msgs/PoseStamped')
-                self.vicon_counter = 0
-                def vicon_callback(message):
-                    # import json
-                    if self.vicon_counter % 1 == 0:
-                        if self.uiState == UIState.CONNECTED:
-                            # self.cf.extpos.send_extpos(message["pose"]["position"]["x"], message["pose"]["position"]["y"], message["pose"]["position"]["z"])
-                            self.cf.extpos.send_extpose(
-                                message["pose"]["position"]["x"],
-                                message["pose"]["position"]["y"],
-                                message["pose"]["position"]["z"],
-                                message["pose"]["orientation"]["x"],
-                                message["pose"]["orientation"]["y"],
-                                message["pose"]["orientation"]["z"],
-                                message["pose"]["orientation"]["w"],
-                            )
-                            if self.vicon_counter % 10 == 0:
-                                print(json.dumps(message["pose"]))
-                    self.vicon_counter += 1
-                self.vicon_listener.subscribe(vicon_callback)
-            except:
-                print("ROS not connected")
-                # dummy timer to feed dummy position
-                def vicon_dummy_callback():
-                    if self.uiState == UIState.CONNECTED:
-                        pass
-                        # self.cf.extpos.send_extpos(0, 0, 0)
-                self.vicon_timer = QTimer()
-                self.vicon_timer.timeout.connect(vicon_dummy_callback)
-                self.vicon_timer.start(100)
+            self.ros_worker = ROSWorker()
+            self.ros_worker.vicon_data_signal.connect(self.handle_vicon_data)
+            self.ros_worker.start()
+        else:
+            self.setup_dummy_timer()
+
+        def setup_dummy_timer(self):
+            self.vicon_timer = QTimer()
+            self.vicon_timer.timeout.connect(self.send_dummy_position)
+            self.vicon_timer.start(100)  # 10Hz dummy data
+
+        def send_dummy_position(self):
+            if self.uiState == UIState.CONNECTED:
+                self.cf.extpos.send_extpose(0, 0, 0, 0, 0, 0, 1)
+        self.vicon_counter = 0
 
 
-            print(f"ROS connected: {self.ros.is_connected}")
+        # if send_vicon_pos:
+        #     self.ros = roslibpy.Ros(host='localhost', port=9090)
+        #     try:
+        #         self.ros.run()
+        #         self.vicon_listener = roslibpy.Topic(self.ros, os.environ["VICON_POSE_TOPIC"], 'geometry_msgs/PoseStamped')
+        #         self.vicon_counter = 0
+        #         def vicon_callback(message):
+        #             # import json
+        #             if self.vicon_counter % 1 == 0:
+        #                 if self.uiState == UIState.CONNECTED:
+        #                     # self.cf.extpos.send_extpos(message["pose"]["position"]["x"], message["pose"]["position"]["y"], message["pose"]["position"]["z"])
+        #                     self.cf.extpos.send_extpose(
+        #                         message["pose"]["position"]["x"],
+        #                         message["pose"]["position"]["y"],
+        #                         message["pose"]["position"]["z"],
+        #                         message["pose"]["orientation"]["x"],
+        #                         message["pose"]["orientation"]["y"],
+        #                         message["pose"]["orientation"]["z"],
+        #                         message["pose"]["orientation"]["w"],
+        #                     )
+        #                 if self.vicon_counter % 10 == 0:
+        #                     print(json.dumps(message["pose"]))
+        #             self.vicon_counter += 1
+        #         self.vicon_listener.subscribe(vicon_callback)
+        #     except:
+        #         print("ROS not connected")
+        #         # dummy timer to feed dummy position
+        #         def vicon_dummy_callback():
+        #             if self.uiState == UIState.CONNECTED:
+        #                 pass
+        #                 # self.cf.extpos.send_extpos(0, 0, 0)
+        #         self.vicon_timer = QTimer()
+        #         self.vicon_timer.timeout.connect(vicon_dummy_callback)
+        #         self.vicon_timer.start(100)
+
+
+        #     print(f"ROS connected: {self.ros.is_connected}")
 
     def create_tab_toolboxes(self, tabs_menu_item, toolboxes_menu_item, tab_widget):
         loaded_tab_toolboxes = {}
@@ -966,6 +1019,31 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
     def closeAppRequest(self):
         self.close()
         sys.exit(0)
+
+    def handle_vicon_data(self, message):
+        # print("Received Vicon data:", message)
+        if self.uiState == UIState.CONNECTED:
+            try:
+                pose = message['pose']
+                self.cf.extpos.send_extpose(
+                    pose['position']['x'],
+                    pose['position']['y'],
+                    pose['position']['z'],
+                    pose['orientation']['x'],
+                    pose['orientation']['y'],
+                    pose['orientation']['z'],
+                    pose['orientation']['w']
+                )
+                self.vicon_counter += 1
+                if self.vicon_counter % 10 == 0:
+                    print(f'Sending pose: {pose["position"]} orientation: {pose["orientation"]}')
+                
+            except Exception as e:
+                print(f"Error sending pose: {e}")
+
+    def closeEvent(self, event):
+        if hasattr(self, 'ros_worker'):
+            self.ros_worker.stop()
 
 
 class ScannerThread(QThread):
