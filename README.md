@@ -1,3 +1,7 @@
+> **⚠️ Note**: This repo is a fork of [https://github.com/bitcraze/crazyflie-clients-python](https://github.com/bitcraze/crazyflie-clients-python)
+> It contains minimal changes that crudely hack mocap and policy switch trigger (for the RLtools/Learning to Fly in Seconds controller) support into the `cfclient` UI. It is embarrasingly crude and I didn't want to publish it but multiple people asked for it, so here it is
+
+
 # Crazyflie PC client [![CI](https://github.com/bitcraze/crazyflie-clients-python/workflows/CI/badge.svg)](https://github.com/bitcraze/crazyflie-clients-python/actions?query=workflow%3ACI) [![cfclient](https://snapcraft.io//cfclient/badge.svg)](https://snapcraft.io/cfclient)
 
 
