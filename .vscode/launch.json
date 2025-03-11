@@ -5,7 +5,15 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: gui",
+            "name": "gui no vicon",
+            "type": "python",
+            "request": "launch",
+            "module": "cfclient.gui",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "gui vicon",
             "type": "python",
             "request": "launch",
             "module": "cfclient.gui",

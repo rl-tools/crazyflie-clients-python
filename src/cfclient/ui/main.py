@@ -81,7 +81,8 @@ from .dialogs.logconfigdialogue import LogConfigDialogue
 
 
 
-send_vicon_pos = True
+import os
+send_vicon_pos = "VICON_POSE_TOPIC" in os.environ
 if send_vicon_pos:
     try: 
         import roslibpy
@@ -400,17 +401,7 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
             self.ros_worker = ROSWorker()
             self.ros_worker.vicon_data_signal.connect(self.handle_vicon_data)
             self.ros_worker.start()
-        else:
-            self.setup_dummy_timer()
 
-        def setup_dummy_timer(self):
-            self.vicon_timer = QTimer()
-            self.vicon_timer.timeout.connect(self.send_dummy_position)
-            self.vicon_timer.start(100)  # 10Hz dummy data
-
-        def send_dummy_position(self):
-            if self.uiState == UIState.CONNECTED:
-                self.cf.extpos.send_extpose(0, 0, 0, 0, 0, 0, 1)
         self.vicon_counter = 0
 
 
