@@ -404,45 +404,6 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
 
         self.vicon_counter = 0
 
-
-        # if send_vicon_pos:
-        #     self.ros = roslibpy.Ros(host='localhost', port=9090)
-        #     try:
-        #         self.ros.run()
-        #         self.vicon_listener = roslibpy.Topic(self.ros, os.environ["VICON_POSE_TOPIC"], 'geometry_msgs/PoseStamped')
-        #         self.vicon_counter = 0
-        #         def vicon_callback(message):
-        #             # import json
-        #             if self.vicon_counter % 1 == 0:
-        #                 if self.uiState == UIState.CONNECTED:
-        #                     # self.cf.extpos.send_extpos(message["pose"]["position"]["x"], message["pose"]["position"]["y"], message["pose"]["position"]["z"])
-        #                     self.cf.extpos.send_extpose(
-        #                         message["pose"]["position"]["x"],
-        #                         message["pose"]["position"]["y"],
-        #                         message["pose"]["position"]["z"],
-        #                         message["pose"]["orientation"]["x"],
-        #                         message["pose"]["orientation"]["y"],
-        #                         message["pose"]["orientation"]["z"],
-        #                         message["pose"]["orientation"]["w"],
-        #                     )
-        #                 if self.vicon_counter % 10 == 0:
-        #                     print(json.dumps(message["pose"]))
-        #             self.vicon_counter += 1
-        #         self.vicon_listener.subscribe(vicon_callback)
-        #     except:
-        #         print("ROS not connected")
-        #         # dummy timer to feed dummy position
-        #         def vicon_dummy_callback():
-        #             if self.uiState == UIState.CONNECTED:
-        #                 pass
-        #                 # self.cf.extpos.send_extpos(0, 0, 0)
-        #         self.vicon_timer = QTimer()
-        #         self.vicon_timer.timeout.connect(vicon_dummy_callback)
-        #         self.vicon_timer.start(100)
-
-
-        #     print(f"ROS connected: {self.ros.is_connected}")
-
     def create_tab_toolboxes(self, tabs_menu_item, toolboxes_menu_item, tab_widget):
         loaded_tab_toolboxes = {}
 
