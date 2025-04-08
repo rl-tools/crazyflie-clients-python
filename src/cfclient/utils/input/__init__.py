@@ -178,6 +178,7 @@ class JoystickReader(object):
         self.assisted_control_updated = Caller()
         self.alt1_updated = Caller()
         self.alt2_updated = Caller()
+        self.learned_controller_input_updated = Caller()
 
         # Call with 3 bools (rp_limiting, yaw_limiting, thrust_limiting)
         self.limiting_updated = Caller()
@@ -413,6 +414,20 @@ class JoystickReader(object):
                                 "Exception while doing callback from "
                                 "input-device for assited "
                                 "control: {}".format(e))
+                if data.toggled.learnedController:
+                    print("toggled learned controller")
+                    try:
+                        self.learned_controller_input_updated.call(data.learnedController)
+                    except Exception as e:
+                        logger.warning("Exception while doing callback from"
+                                       "input-device for learned_controller: {}".format(e))
+                if data.learnedController:
+                    print(" learned controller")
+                    try:
+                        self.learned_controller_input_updated.call(data.learnedController)
+                    except Exception as e:
+                        logger.warning("Exception while doing callback from"
+                                       "input-device for learned_controller: {}".format(e))
 
                 if data.toggled.estop:
                     try:
