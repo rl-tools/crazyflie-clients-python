@@ -1,0 +1,35 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "gui no vicon",
+            "type": "python",
+            "request": "launch",
+            "module": "cfclient.gui",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "gui vicon",
+            "type": "python",
+            "request": "launch",
+            "module": "cfclient.gui",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "VICON_POSE_TOPIC": "/vicon/crazyflie/pose"
+            }
+        },
+        {
+            "name": "Test Gamepad Inputs",
+            "type": "python",
+            "request": "launch",
+            "program": "test_gamepad_inputs.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+        }
+    ]
+}

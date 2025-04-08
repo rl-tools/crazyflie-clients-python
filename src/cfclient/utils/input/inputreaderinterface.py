@@ -52,7 +52,7 @@ class InputData:
         self._axes = ("roll", "pitch", "yaw", "thrust")
         self._buttons = ("pitchNeg", "pitchPos", "rollNeg", "rollPos",
                          "assistedControl", "estop", "arm",
-                         "exitapp", "alt1", "alt2", "muxswitch")
+                         "exitapp", "alt1", "alt2", "muxswitch", "learnedController")
         for axis in self._axes:
             self.__dict__[axis] = 0.0
         self.toggled = _ToggleState()

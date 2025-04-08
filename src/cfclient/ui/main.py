@@ -29,6 +29,7 @@ The main file for the Crazyflie control application.
 import logging
 import sys
 import usb
+import json
 
 import cfclient
 from cfclient.ui.pose_logger import PoseLogger
@@ -65,9 +66,34 @@ from PyQt6.QtWidgets import QLabel
 from PyQt6.QtWidgets import QMenu
 from PyQt6.QtWidgets import QMessageBox
 
+
+import cflib.crtp
+from cflib.crazyflie import Crazyflie
+from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
+from cflib.utils import uri_helper
+from cflib.crtp.crtpstack import CRTPPacket
+from cflib.crtp.crtpstack import CRTPPort
+from cflib.crazyflie.commander import SET_SETPOINT_CHANNEL, META_COMMAND_CHANNEL, TYPE_HOVER 
+
 from .dialogs.cf2config import Cf2ConfigDialog
 from .dialogs.inputconfigdialogue import InputConfigDialogue
 from .dialogs.logconfigdialogue import LogConfigDialogue
+
+
+
+import os
+send_vicon_pos = "VICON_POSE_TOPIC" in os.environ
+if send_vicon_pos:
+    try: 
+        import roslibpy
+        from PyQt6.QtCore import QTimer, QThread, pyqtSignal, QMutex
+    except:
+        send_vicon_pos = False
+import os
+import random
+import struct
+import time
+
 
 
 __author__ = 'Bitcraze AB'
@@ -79,6 +105,12 @@ logger = logging.getLogger(__name__)
  main_windows_base_class) = (uic.loadUiType(cfclient.module_path +
                                             '/ui/main.ui'))
 
+def send_learned_policy_packet(cf):
+    pk = CRTPPacket()
+    pk.port = CRTPPort.COMMANDER_GENERIC
+    pk.channel = META_COMMAND_CHANNEL
+    pk.data = struct.pack('<B', 1)
+    cf.send_packet(pk)
 
 class UIState:
     DISCONNECTED = 0
@@ -89,6 +121,41 @@ class UIState:
 
 class BatteryStates:
     BATTERY, CHARGING, CHARGED, LOW_POWER = list(range(4))
+
+
+class ROSWorker(QThread):
+    vicon_data_signal = pyqtSignal(dict)
+    
+    def __init__(self):
+        super().__init__()
+        self.mutex = QMutex()
+        self.running = True
+
+    def run(self):
+        try:
+            ros = roslibpy.Ros(host='localhost', port=9090)
+            ros.run(timeout=5)
+            
+            listener = roslibpy.Topic(ros, os.environ.get("VICON_POSE_TOPIC", "/vicon/crazyflie/pose"), 'geometry_msgs/PoseStamped', throttle_rate=50)
+            listener.subscribe(self.process_vicon_message)
+            
+            while self.running and ros.is_connected:
+                time.sleep(0.001)
+                
+        except Exception as e:
+            print(f"ROS Error: {e}")
+        finally:
+            if ros.is_connected:
+                ros.close()
+
+    def process_vicon_message(self, message):
+        self.mutex.lock()
+        self.vicon_data_signal.emit(message)
+        self.mutex.unlock()
+
+    def stop(self):
+        self.running = False
+        self.wait()
 
 
 class MainUI(QtWidgets.QMainWindow, main_window_class):
@@ -205,6 +272,16 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
             lambda *args: self._disable_input or
             self.cf.commander.send_zdistance_setpoint(*args))
 
+        self.learned_controller_counter = 0
+        def learned_controller_callback(*args):
+            if self.learned_controller_counter % 10 == 0:
+                print("learned controller callback")
+                self._disable_input or send_learned_policy_packet(self.cf) #.commander.send_learned_controller()
+            self.learned_controller_counter += 1
+            return True
+
+        self.joystickReader.learned_controller_input_updated.add_callback(learned_controller_callback)
+
         self.joystickReader.hover_input_updated.add_callback(
             self.cf.commander.send_hover_setpoint)
 
@@ -319,6 +396,13 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
 
         # We only want to warn about USB permission once
         self._permission_warned = False
+
+        if send_vicon_pos:
+            self.ros_worker = ROSWorker()
+            self.ros_worker.vicon_data_signal.connect(self.handle_vicon_data)
+            self.ros_worker.start()
+
+        self.vicon_counter = 0
 
     def create_tab_toolboxes(self, tabs_menu_item, toolboxes_menu_item, tab_widget):
         loaded_tab_toolboxes = {}
@@ -887,6 +971,31 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
     def closeAppRequest(self):
         self.close()
         sys.exit(0)
+
+    def handle_vicon_data(self, message):
+        # print("Received Vicon data:", message)
+        if self.uiState == UIState.CONNECTED:
+            try:
+                pose = message['pose']
+                self.cf.extpos.send_extpose(
+                    pose['position']['x'],
+                    pose['position']['y'],
+                    pose['position']['z'],
+                    pose['orientation']['x'],
+                    pose['orientation']['y'],
+                    pose['orientation']['z'],
+                    pose['orientation']['w']
+                )
+                self.vicon_counter += 1
+                if self.vicon_counter % 10 == 0:
+                    print(f'Sending pose: {pose["position"]} orientation: {pose["orientation"]}')
+                
+            except Exception as e:
+                print(f"Error sending pose: {e}")
+
+    def closeEvent(self, event):
+        if hasattr(self, 'ros_worker'):
+            self.ros_worker.stop()
 
 
 class ScannerThread(QThread):
