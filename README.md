@@ -221,9 +221,10 @@ index 0000000..e5374a0
 
 
 Do the normal assignment, then use `python3 test_gamepad_inputs.py` to check the id of an additional button and insert it into the config under `learnedController` as described in the following.
+Note: For some reason cfclient does not seem to properly save the assigned configs when saving it under a new name (at least it does not show up afterwards) hence use one of the standard ones, e.g. `PS3_Mode_2`
 
 Change the mapping in `~/.config/cfclient/input/xxx.json` to include `learnedController`, e.g.:
-Note: newer versions appear to save the config in `/Users/jonas/Library/Application Support/cfclient/config.json`
+Note: newer versions appear to save the config in `/Users/jonas/Library/Application Support/cfclient/xxx`
 
 ```
 {
