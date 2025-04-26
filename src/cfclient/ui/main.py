@@ -136,7 +136,7 @@ class ROSWorker(QThread):
             ros = roslibpy.Ros(host='localhost', port=9090)
             ros.run(timeout=5)
             
-            listener = roslibpy.Topic(ros, os.environ.get("VICON_POSE_TOPIC", "/vicon/crazyflie/pose"), 'geometry_msgs/PoseStamped', throttle_rate=50)
+            listener = roslibpy.Topic(ros, os.environ.get("VICON_POSE_TOPIC", "/vicon/crazyflie/pose"), 'geometry_msgs/PoseStamped')
             listener.subscribe(self.process_vicon_message)
             
             while self.running and ros.is_connected:
@@ -403,6 +403,7 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
             self.ros_worker.start()
 
         self.vicon_counter = 0
+        self.last_vicon_message = None
 
     def create_tab_toolboxes(self, tabs_menu_item, toolboxes_menu_item, tab_widget):
         loaded_tab_toolboxes = {}
@@ -976,19 +977,22 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
         # print("Received Vicon data:", message)
         if self.uiState == UIState.CONNECTED:
             try:
-                pose = message['pose']
-                self.cf.extpos.send_extpose(
-                    pose['position']['x'],
-                    pose['position']['y'],
-                    pose['position']['z'],
-                    pose['orientation']['x'],
-                    pose['orientation']['y'],
-                    pose['orientation']['z'],
-                    pose['orientation']['w']
-                )
-                self.vicon_counter += 1
-                if self.vicon_counter % 10 == 0:
-                    print(f'Sending pose: {pose["position"]} orientation: {pose["orientation"]}')
+                now = time.time()
+                if self.last_vicon_message is None or (now - self.last_vicon_message) > 0.01:
+                    self.last_vicon_message = now
+                    pose = message['pose']
+                    self.cf.extpos.send_extpose(
+                        pose['position']['x'],
+                        pose['position']['y'],
+                        pose['position']['z'],
+                        pose['orientation']['x'],
+                        pose['orientation']['y'],
+                        pose['orientation']['z'],
+                        pose['orientation']['w']
+                    )
+                    self.vicon_counter += 1
+                    if self.vicon_counter % 10 == 0:
+                        print(f'Sending pose: {pose["position"]} orientation: {pose["orientation"]}')
                 
             except Exception as e:
                 print(f"Error sending pose: {e}")
