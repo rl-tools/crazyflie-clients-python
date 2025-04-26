@@ -12,7 +12,7 @@ pip install -e .
 
 ```diff
 diff --git a/src/cfclient/ui/main.py b/src/cfclient/ui/main.py
-index b3a3b97..556f315 100644
+index 74b3f43..57d9612 100644
 --- a/src/cfclient/ui/main.py
 +++ b/src/cfclient/ui/main.py
 @@ -29,6 +29,7 @@ The main file for the Crazyflie control application.
@@ -90,7 +90,7 @@ index b3a3b97..556f315 100644
 +            ros = roslibpy.Ros(host='localhost', port=9090)
 +            ros.run(timeout=5)
 +            
-+            listener = roslibpy.Topic(ros, os.environ.get("VICON_POSE_TOPIC", "/vicon/crazyflie/pose"), 'geometry_msgs/PoseStamped', throttle_rate=50)
++            listener = roslibpy.Topic(ros, os.environ.get("VICON_POSE_TOPIC", "/vicon/crazyflie/pose"), 'geometry_msgs/PoseStamped')
 +            listener.subscribe(self.process_vicon_message)
 +            
 +            while self.running and ros.is_connected:
@@ -127,12 +127,12 @@ index b3a3b97..556f315 100644
 +            self.learned_controller_counter += 1
 +            return True
 +
-+        self.joystickReader.learned_controller_input_updated.add_callback(learned_controller_callback)
++        self.joystickReader.alt1_updated.add_callback(learned_controller_callback)
 +
          self.joystickReader.hover_input_updated.add_callback(
              self.cf.commander.send_hover_setpoint)
  
-@@ -320,6 +397,13 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
+@@ -320,6 +397,14 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
          # We only want to warn about USB permission once
          self._permission_warned = False
  
@@ -142,11 +142,12 @@ index b3a3b97..556f315 100644
 +            self.ros_worker.start()
 +
 +        self.vicon_counter = 0
++        self.last_vicon_message = None
 +
      def create_tab_toolboxes(self, tabs_menu_item, toolboxes_menu_item, tab_widget):
          loaded_tab_toolboxes = {}
  
-@@ -888,6 +972,31 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
+@@ -888,6 +973,34 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
          self.close()
          sys.exit(0)
  
@@ -154,19 +155,22 @@ index b3a3b97..556f315 100644
 +        # print("Received Vicon data:", message)
 +        if self.uiState == UIState.CONNECTED:
 +            try:
-+                pose = message['pose']
-+                self.cf.extpos.send_extpose(
-+                    pose['position']['x'],
-+                    pose['position']['y'],
-+                    pose['position']['z'],
-+                    pose['orientation']['x'],
-+                    pose['orientation']['y'],
-+                    pose['orientation']['z'],
-+                    pose['orientation']['w']
-+                )
-+                self.vicon_counter += 1
-+                if self.vicon_counter % 10 == 0:
-+                    print(f'Sending pose: {pose["position"]} orientation: {pose["orientation"]}')
++                now = time.time()
++                if self.last_vicon_message is None or (now - self.last_vicon_message) > 0.01:
++                    self.last_vicon_message = now
++                    pose = message['pose']
++                    self.cf.extpos.send_extpose(
++                        pose['position']['x'],
++                        pose['position']['y'],
++                        pose['position']['z'],
++                        pose['orientation']['x'],
++                        pose['orientation']['y'],
++                        pose['orientation']['z'],
++                        pose['orientation']['w']
++                    )
++                    self.vicon_counter += 1
++                    if self.vicon_counter % 10 == 0:
++                        print(f'Sending pose: {pose["position"]} orientation: {pose["orientation"]}')
 +                
 +            except Exception as e:
 +                print(f"Error sending pose: {e}")
@@ -179,46 +183,57 @@ index b3a3b97..556f315 100644
  class ScannerThread(QThread):
  
 diff --git a/src/cfclient/utils/input/__init__.py b/src/cfclient/utils/input/__init__.py
-index 6d066e0..a723b46 100644
+index 6d066e0..041e8ff 100644
 --- a/src/cfclient/utils/input/__init__.py
 +++ b/src/cfclient/utils/input/__init__.py
-@@ -178,6 +178,7 @@ class JoystickReader(object):
-         self.assisted_control_updated = Caller()
-         self.alt1_updated = Caller()
-         self.alt2_updated = Caller()
-+        self.learned_controller_input_updated = Caller()
- 
-         # Call with 3 bools (rp_limiting, yaw_limiting, thrust_limiting)
-         self.limiting_updated = Caller()
-@@ -413,6 +414,20 @@ class JoystickReader(object):
+@@ -413,7 +413,6 @@ class JoystickReader(object):
                                  "Exception while doing callback from "
                                  "input-device for assited "
                                  "control: {}".format(e))
-+                if data.toggled.learnedController:
-+                    print("toggled learned controller")
-+                    try:
-+                        self.learned_controller_input_updated.call(data.learnedController)
-+                    except Exception as e:
-+                        logger.warning("Exception while doing callback from"
-+                                       "input-device for learned_controller: {}".format(e))
-+                if data.learnedController:
-+                    print(" learned controller")
-+                    try:
-+                        self.learned_controller_input_updated.call(data.learnedController)
-+                    except Exception as e:
-+                        logger.warning("Exception while doing callback from"
-+                                       "input-device for learned_controller: {}".format(e))
- 
+-
                  if data.toggled.estop:
                      try:
-diff --git a/src/cfclient/version.json b/src/cfclient/version.json
-new file mode 100644
-index 0000000..e5374a0
---- /dev/null
-+++ b/src/cfclient/version.json
-@@ -0,0 +1 @@
-+{"version": "2023.10rc1.post44.dev0+61be0d8"}
-\ No newline at end of file
+                         self.emergency_stop_updated.call(data.estop)
+@@ -432,6 +431,12 @@ class JoystickReader(object):
+                     except Exception as e:
+                         logger.warning("Exception while doing callback from"
+                                        "input-device for alt1: {}".format(e))
++                if data.alt1:
++                    try:
++                        self.alt1_updated.call(data.alt1)
++                    except Exception as e:
++                        logger.warning("Exception while doing callback from"
++                                       "input-device for alt1: {}".format(e))
+                 if data.toggled.alt2:
+                     try:
+                         self.alt2_updated.call(data.alt2)
+@@ -453,7 +458,7 @@ class JoystickReader(object):
+                     vx = data.roll
+                     vy = data.pitch
+                     vz = data.thrust
+-                    yawrate = data.yaw
++                    yawrate = -data.yaw
+                     # The odd use of vx and vy is to map forward on the
+                     # physical joystick to positive X-axis
+                     self.assisted_input_updated.call(vy, -vx, vz, yawrate)
+@@ -473,7 +478,7 @@ class JoystickReader(object):
+                     if self._target_height < MIN_HOVER_HEIGHT:
+                         self._target_height = MIN_HOVER_HEIGHT
+ 
+-                    yawrate = data.yaw
++                    yawrate = -data.yaw
+                     # The odd use of vx and vy is to map forward on the
+                     # physical joystick to positive X-axis
+                     self.hover_input_updated.call(vy, -vx, yawrate,
+@@ -499,7 +504,7 @@ class JoystickReader(object):
+                             and data.assistedControl:
+                         roll = data.roll + self.trim_roll
+                         pitch = data.pitch + self.trim_pitch
+-                        yawrate = data.yaw
++                        yawrate = -data.yaw
+                         # Scale thrust to a value between -1.0 to 1.0
+                         vz = (data.thrust - 32767) / 32767.0
+                         # Integrate velocity setpoint
 
 ```
 
@@ -226,67 +241,8 @@ index 0000000..e5374a0
 
 ## Input mapping
 
+Please do the input configuration as normal and assign `alt1` to e.g. one of the shoulder buttons. `alt1` is used to activate the policy mid-flight
 
-Do the normal assignment, then use `python3 test_gamepad_inputs.py` to check the id of an additional button and insert it into the config under `learnedController` as described in the following.
-Note: For some reason cfclient does not seem to properly save the assigned configs when saving it under a new name (at least it does not show up afterwards) hence use one of the standard ones, e.g. `PS3_Mode_2`
-
-Change the mapping in `~/.config/cfclient/input/xxx.json` to include `learnedController`, e.g.:
-Note: newer versions appear to save the config in `/Users/jonas/Library/Application Support/cfclient/xxx`
-
-```
-{
-  "inputconfig": {
-    "inputdevice": {
-      "axis": [
-        {
-          "id": 1,
-          "scale": -1.0,
-          "key": "thrust",
-          "name": "thrust",
-          "type": "Input.AXIS"
-        },
-        {
-          "id": 4,
-          "scale": -1.0,
-          "key": "pitch",
-          "name": "pitch",
-          "type": "Input.AXIS"
-        },
-        {
-          "id": 3,
-          "scale": 1.0,
-          "key": "roll",
-          "name": "roll",
-          "type": "Input.AXIS"
-        },
-        {
-          "id": 0,
-          "scale": 1.0,
-          "key": "yaw",
-          "name": "yaw",
-          "type": "Input.AXIS"
-        },
-        {
-          "id": 4,
-          "scale": 1.0,
-          "key": "assistedControl",
-          "name": "assistedControl",
-          "type": "Input.BUTTON"
-        },
-        {
-          "id": 5,
-          "scale": 1.0,
-          "key": "learnedController",
-          "name": "learnedController",
-          "type": "Input.BUTTON"
-        }
-      ],
-      "name": "PS3_Mode_1_8bitdo",
-      "updateperiod": 10
-    }
-  }
-}
-```
 
 ## Motion Capturing
 
