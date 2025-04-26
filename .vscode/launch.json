@@ -13,7 +13,7 @@
             "justMyCode": false
         },
         {
-            "name": "gui vicon",
+            "name": "gui vicon [crazyflie]",
             "type": "python",
             "request": "launch",
             "module": "cfclient.gui",
@@ -21,6 +21,17 @@
             "justMyCode": false,
             "env": {
                 "VICON_POSE_TOPIC": "/vicon/crazyflie/pose"
+            }
+        },
+        {
+            "name": "gui vicon [crazyflie brushless]",
+            "type": "python",
+            "request": "launch",
+            "module": "cfclient.gui",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "VICON_POSE_TOPIC": "/vicon/crazyflie_bl/pose"
             }
         },
         {

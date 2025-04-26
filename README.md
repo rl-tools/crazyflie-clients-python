@@ -296,3 +296,9 @@ roslaunch rosbridge_server rosbridge_websocket.launch
 
 
 => `.vscode/launch.json`
+
+
+
+### "Too many Packets Lost"
+
+If this error comes up, probably the connection was interrupted by e.g. rebooting the CF without disconnecting from the UI (continuing to send Mocap/Extpos messages). Restart the UI, Crazyflie and CrazyRadio in random orders and it should work again...
