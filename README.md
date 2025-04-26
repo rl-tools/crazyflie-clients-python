@@ -1,6 +1,13 @@
 > **⚠️ Note**: This repo is a fork of [https://github.com/bitcraze/crazyflie-clients-python](https://github.com/bitcraze/crazyflie-clients-python)
 > It contains minimal changes that crudely hack mocap and policy switch trigger (for the RLtools/Learning to Fly in Seconds controller) support into the `cfclient` UI. It is embarrasingly crude and I didn't want to publish it but multiple people asked for it, so here it is
 
+# Installation
+
+Create venv and then install this package into it:
+```
+pip install -e .
+```
+
 # Main diff
 
 ```diff
