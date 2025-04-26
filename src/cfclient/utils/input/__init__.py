@@ -178,7 +178,6 @@ class JoystickReader(object):
         self.assisted_control_updated = Caller()
         self.alt1_updated = Caller()
         self.alt2_updated = Caller()
-        self.learned_controller_input_updated = Caller()
 
         # Call with 3 bools (rp_limiting, yaw_limiting, thrust_limiting)
         self.limiting_updated = Caller()
