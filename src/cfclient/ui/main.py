@@ -280,7 +280,7 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
             self.learned_controller_counter += 1
             return True
 
-        self.joystickReader.learned_controller_input_updated.add_callback(learned_controller_callback)
+        self.joystickReader.alt1_updated.add_callback(learned_controller_callback)
 
         self.joystickReader.hover_input_updated.add_callback(
             self.cf.commander.send_hover_setpoint)
