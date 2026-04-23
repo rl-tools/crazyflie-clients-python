@@ -33,18 +33,22 @@ Basic tab to be able to set (and test) colors in the LED-ring.
 import logging
 
 from PyQt6 import QtGui, uic
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import pyqtSignal, QTimer
 from PyQt6 import QtWidgets
 
 import cfclient
 from cfclient.ui.tab_toolbox import TabToolbox
 
 from cflib.crazyflie.mem import MemoryElement
+from cflib.crtp.crtpstack import CRTPPacket
 
 __author__ = 'Bitcraze AB'
 __all__ = ['LEDRingTab']
 
 logger = logging.getLogger(__name__)
+
+CRTP_PORT_OFFBOARD_ARM = 0x0E
+OFFBOARD_ARM_RESEND_MS = 50
 
 led_ring_tab_class = uic.loadUiType(cfclient.module_path + "/ui/tabs/ledRingTab.ui")[0]
 
@@ -54,6 +58,7 @@ class LEDRingTab(TabToolbox, led_ring_tab_class):
 
     _connected_signal = pyqtSignal(str)
     _disconnected_signal = pyqtSignal(str)
+    _alt2_state_signal = pyqtSignal(bool)
 
     def __init__(self, helper):
         super(LEDRingTab, self).__init__(helper, 'LED Ring')
@@ -61,6 +66,12 @@ class LEDRingTab(TabToolbox, led_ring_tab_class):
 
         # LED-ring effect dropdown and headlight checkbox
         self._ledring_nbr_effects = 0
+
+        self._offboard_armed = False
+        self._offboard_resend_timer = QTimer(self)
+        self._offboard_resend_timer.setInterval(OFFBOARD_ARM_RESEND_MS)
+        self._offboard_resend_timer.timeout.connect(self._send_offboard_arm)
+        self._alt2_state_signal.connect(self._handle_alt2_main_thread)
 
         # Connect the headlight checkbox
         self._led_ring_headlight.clicked.connect(
@@ -274,4 +285,21 @@ class LEDRingTab(TabToolbox, led_ring_tab_class):
             self._helper.cf.param.set_value("ring.effect", str(new_index))
 
     def alt2_updated(self, state):
-        self._helper.cf.param.set_value("ring.headlightEnable", str(state))
+        logger.info("alt2_updated state=%s → CRTP port 0x%02X", state,
+                    CRTP_PORT_OFFBOARD_ARM)
+        self._alt2_state_signal.emit(bool(state))
+
+    def _handle_alt2_main_thread(self, state):
+        self._offboard_armed = state
+        self._send_offboard_arm()
+        if self._offboard_armed:
+            if not self._offboard_resend_timer.isActive():
+                self._offboard_resend_timer.start()
+        else:
+            self._offboard_resend_timer.stop()
+
+    def _send_offboard_arm(self):
+        pk = CRTPPacket()
+        pk.set_header(CRTP_PORT_OFFBOARD_ARM, 0)
+        pk.data = bytes([1 if self._offboard_armed else 0])
+        self._helper.cf.send_packet(pk)
