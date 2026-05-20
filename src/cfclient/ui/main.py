@@ -27,7 +27,9 @@
 The main file for the Crazyflie control application.
 """
 import logging
+import struct
 import sys
+import time
 import usb
 import json
 
@@ -78,21 +80,9 @@ from cflib.crazyflie.commander import SET_SETPOINT_CHANNEL, META_COMMAND_CHANNEL
 from .dialogs.cf2config import Cf2ConfigDialog
 from .dialogs.inputconfigdialogue import InputConfigDialogue
 from .dialogs.logconfigdialogue import LogConfigDialogue
-
-
-
-import os
-send_vicon_pos = "VICON_POSE_TOPIC" in os.environ
-if send_vicon_pos:
-    try: 
-        import roslibpy
-        from PyQt6.QtCore import QTimer, QThread, pyqtSignal, QMutex
-    except:
-        send_vicon_pos = False
-import os
-import random
-import struct
-import time
+from .vicon_datastream import ViconDataStreamWorker
+from .vicon_datastream import vicon_datastream_config_from_env
+from .vicon_datastream import vicon_datastream_enabled
 
 
 
@@ -121,41 +111,6 @@ class UIState:
 
 class BatteryStates:
     BATTERY, CHARGING, CHARGED, LOW_POWER = list(range(4))
-
-
-class ROSWorker(QThread):
-    vicon_data_signal = pyqtSignal(dict)
-    
-    def __init__(self):
-        super().__init__()
-        self.mutex = QMutex()
-        self.running = True
-
-    def run(self):
-        try:
-            ros = roslibpy.Ros(host='localhost', port=9090)
-            ros.run(timeout=5)
-            
-            listener = roslibpy.Topic(ros, os.environ.get("VICON_POSE_TOPIC", "/vicon/crazyflie/pose"), 'geometry_msgs/PoseStamped')
-            listener.subscribe(self.process_vicon_message)
-            
-            while self.running and ros.is_connected:
-                time.sleep(0.001)
-                
-        except Exception as e:
-            print(f"ROS Error: {e}")
-        finally:
-            if ros.is_connected:
-                ros.close()
-
-    def process_vicon_message(self, message):
-        self.mutex.lock()
-        self.vicon_data_signal.emit(message)
-        self.mutex.unlock()
-
-    def stop(self):
-        self.running = False
-        self.wait()
 
 
 class MainUI(QtWidgets.QMainWindow, main_window_class):
@@ -397,13 +352,19 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
         # We only want to warn about USB permission once
         self._permission_warned = False
 
-        if send_vicon_pos:
-            self.ros_worker = ROSWorker()
-            self.ros_worker.vicon_data_signal.connect(self.handle_vicon_data)
-            self.ros_worker.start()
-
         self.vicon_counter = 0
         self.last_vicon_message = None
+        self.last_vicon_forward_print = 0
+        self.vicon_forward_period = 0.01
+        if vicon_datastream_enabled():
+            self.vicon_datastream_config = vicon_datastream_config_from_env()
+            self.vicon_forward_period = (
+                self.vicon_datastream_config.forward_period)
+            self.vicon_worker = ViconDataStreamWorker(
+                self.vicon_datastream_config)
+            self.vicon_worker.vicon_data_signal.connect(
+                self.handle_vicon_data)
+            self.vicon_worker.start()
 
     def create_tab_toolboxes(self, tabs_menu_item, toolboxes_menu_item, tab_widget):
         loaded_tab_toolboxes = {}
@@ -974,11 +935,12 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
         sys.exit(0)
 
     def handle_vicon_data(self, message):
-        # print("Received Vicon data:", message)
         if self.uiState == UIState.CONNECTED:
             try:
                 now = time.time()
-                if self.last_vicon_message is None or (now - self.last_vicon_message) > 0.01:
+                if (self.last_vicon_message is None or
+                        now - self.last_vicon_message >=
+                        self.vicon_forward_period):
                     self.last_vicon_message = now
                     pose = message['pose']
                     self.cf.extpos.send_extpose(
@@ -991,15 +953,23 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
                         pose['orientation']['w']
                     )
                     self.vicon_counter += 1
-                    if self.vicon_counter % 10 == 0:
-                        print(f'Sending pose: {pose["position"]} orientation: {pose["orientation"]}')
+                    if now - self.last_vicon_forward_print >= 1.0:
+                        self.last_vicon_forward_print = now
+                        print(
+                            '[vicon] forwarded pose to Crazyflie '
+                            'pos=({:.3f}, {:.3f}, {:.3f})m'.format(
+                                pose['position']['x'],
+                                pose['position']['y'],
+                                pose['position']['z']),
+                            flush=True)
                 
             except Exception as e:
-                print(f"Error sending pose: {e}")
+                logger.warning('Error sending Vicon pose: %s', e)
+                print('[vicon] Error sending pose: {}'.format(e), flush=True)
 
     def closeEvent(self, event):
-        if hasattr(self, 'ros_worker'):
-            self.ros_worker.stop()
+        if hasattr(self, 'vicon_worker'):
+            self.vicon_worker.stop()
 
 
 class ScannerThread(QThread):
