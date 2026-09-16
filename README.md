@@ -13,10 +13,26 @@ pip install -e .
 
 # Custom additions
 
-This fork keeps two small additions on top of the normal `cfclient` UI:
+This fork adds:
 
 - Vicon DataStream external-pose forwarding into `cf.extpos.send_extpose(...)`
 - `alt1` controller callback support for triggering the learned policy
+- Optional joystream phone input, without a system joystick or HID entitlement
+
+## Phone input
+
+Install with `pip install -e '.[joystream]'` (or install your local joystream
+checkout into the same environment), then run `JOYSTREAM=1 cfclient`.
+Connect the iPhone app to `<computer-ip>:8000`, or open
+`http://<computer-ip>:8000` in a phone browser. Select **joystream** under
+**Input device** if another controller is selected.
+
+The default Mode 2 mapping uses left stick for yaw/thrust, right for roll/pitch,
+A to arm, B for emergency stop, L1 for assisted control, and R1 for `alt1`.
+Saved mappings take precedence. Disconnect or 0.5s without input sends neutral
+controls while keeping the Crazyflie connection open; input resumes automatically
+when the phone sends again. `JOYSTREAM_HOST` and
+`JOYSTREAM_PORT` override the default listener (`0.0.0.0:8000`).
 
 # Learning to Fly in Seconds
 

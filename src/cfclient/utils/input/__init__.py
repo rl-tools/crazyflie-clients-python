@@ -266,8 +266,9 @@ class JoystickReader(object):
         self._input_device.open()
 
     def get_saved_device_mapping(self, device_name):
-        """Return the saved mapping for a given device"""
-        config = None
+        """Return the saved mapping, falling back to the reader's default."""
+        device = self._get_device_from_name(device_name)
+        config = getattr(device, "default_mapping", None)
         device_config_mapping = Config().get("device_config_mapping")
         if device_name in list(device_config_mapping.keys()):
             config = device_config_mapping[device_name]

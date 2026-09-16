@@ -62,6 +62,7 @@ Issues = "https://github.com/bitcraze/crazyflie-clients-python/issues"
 
 [project.optional-dependencies]
 dev = ['pre-commit']
+joystream = ['joystream>=0.0.2']
 
 [project.scripts]
 cfclient = "cfclient.gui:main"

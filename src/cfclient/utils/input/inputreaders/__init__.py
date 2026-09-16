@@ -34,7 +34,8 @@ directory and it will be picked up automatically.
 """
 
 import logging
-from ..inputreaderinterface import InputReaderInterface
+import os
+from ..inputreaderinterface import InputData, InputReaderInterface
 
 __author__ = 'Bitcraze AB'
 __all__ = ['InputDevice']
@@ -52,6 +53,8 @@ except Exception:
 # Statically listing the available input readers
 input_readers = ["linuxjsdev",
                  "pysdl2"]
+if os.environ.get("JOYSTREAM") == "1":
+    input_readers.append("joystream")
 
 logger.info("Input readers: {}".format(input_readers))
 
@@ -65,7 +68,8 @@ for reader in input_readers:
         initialized_readers.append(getattr(module, main_name)())
         logger.info("Successfully initialized [{}]".format(reader))
     except Exception as e:
-        logger.info("Could not initialize [{}]: {}".format(reader, e))
+        log = logger.warning if reader == "joystream" else logger.info
+        log("Could not initialize [{}]: {}".format(reader, e))
 
 
 def devices():
@@ -93,10 +97,15 @@ class InputDevice(InputReaderInterface):
         self.limit_thrust = True
         self.limit_yaw = True
         self.db = 0.
+        self.default_mapping = getattr(dev_reader, "default_mapping", None)
 
     def open(self):
-        # TODO: Reset data?
         self._reader.open(self.id)
+        # A reopened controller must not inherit thrust slew or button state
+        # from before a disconnect.
+        self.data = InputData()
+        self._prev_thrust = self._old_thrust = self._old_raw_thrust = 0
+        self._last_time = 0
 
     def close(self):
         self._reader.close(self.id)
@@ -105,7 +114,18 @@ class InputDevice(InputReaderInterface):
         self.db = db
 
     def read(self, include_raw=False):
-        [axis, buttons] = self._reader.read(self.id)
+        raw = self._reader.read(self.id)
+        if raw is None:
+            # Missing network input is neutral, without closing the device.
+            # Bypass mapping/limits and clear slew so stale thrust cannot return.
+            self.data.reset_axes()
+            # set() clears cached presses and emits one release edge per button.
+            for button in self.data._buttons:
+                self.data.set(button, False)
+            self._prev_thrust = self._old_thrust = self._old_raw_thrust = 0
+            self._last_time = 0
+            return [[], [], self.data] if include_raw else self.data
+        [axis, buttons] = raw
 
         # To support split axis we need to zero all the axis
         self.data.reset_axes()

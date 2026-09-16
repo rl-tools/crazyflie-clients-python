@@ -877,8 +877,9 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
                         # If this device hasn't been found before, then
                         # select the default mapping for it.
                         if d not in self._available_devices:
-                            last_map = Config().get("device_config_mapping")
-                            if d.name in last_map and last_map[d.name] == c:
+                            last_map = self.joystickReader.get_saved_device_mapping(
+                                d.name)
+                            if last_map == c:
                                 node.setChecked(True)
                     role_menu.addMenu(map_node)
                 dev_node.setData((map_node, d, mux_menu))
