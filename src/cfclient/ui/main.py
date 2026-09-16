@@ -680,6 +680,8 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
 
     def closeEvent(self, event):
         Config().save_file()
+        if hasattr(self, 'vicon_worker'):
+            self.vicon_worker.stop()
         self.cf.close_link()
         self.hide()
 
@@ -960,10 +962,6 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
             except Exception as e:
                 logger.warning('Error sending Vicon pose: %s', e)
                 print('[vicon] Error sending pose: {}'.format(e), flush=True)
-
-    def closeEvent(self, event):
-        if hasattr(self, 'vicon_worker'):
-            self.vicon_worker.stop()
 
 
 class ScannerThread(QThread):
